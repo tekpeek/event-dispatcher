@@ -8,7 +8,7 @@ import os
 import sys
 import logging
 from datetime import datetime
-from src.core.email_handler import send_email, prepare_stock_template
+from email_handler import send_email, prepare_stock_template
 
 # Configure logging
 logging.basicConfig(
@@ -121,4 +121,4 @@ app.include_router(router)
 
 if __name__ == "__main__":
     logger.info("Starting Event Dispatcher Service")
-    uvicorn.run("src.api.main:app", host="0.0.0.0", port=8001, log_level="info", reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, log_level="info", reload=True)
