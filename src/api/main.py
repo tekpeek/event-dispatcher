@@ -9,6 +9,7 @@ import sys
 import logging
 from datetime import datetime
 from email_handler import send_email, prepare_stock_template
+from event_dispatch_functions import trigger_health_alert
 
 # Configure logging
 logging.basicConfig(
@@ -57,6 +58,20 @@ class GenericEmailRequest(BaseModel):
 def health_check():
     return JSONResponse({"status": "OK", "timestamp": str(datetime.now())})
 
+@router.post("/api/v1/health-alert")
+def send_health_alert(request: HealthAlertRequest):
+    logger.info(f"Received health alert request for issues: {request.issues}")
+    current_datetime = datetime.now().strftime("%B %d %Y - %I:%M %p")
+    try:
+        trigger_health_alert(logger,request.issues,current_datetime)
+    except Exception as e:
+        logger.error(f"Failed to send health alert: {str(e)}")
+        raise HTTPException(status_code=500,detail=str(e))
+    return JSONResponse({"status": "Health alert email sent"})
+    
+
+
+
 @router.post("/api/v1/stock-alert")
 def send_stock_alert(request: StockAlertRequest):
     logger.info(f"Received stock alert request for {len(request.stocks)} stocks")
@@ -72,38 +87,6 @@ def send_stock_alert(request: StockAlertRequest):
         return JSONResponse({"status": "Email sent", "count": len(request.stocks)})
     except Exception as e:
         logger.error(f"Failed to send stock alert: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/api/v1/health-alert")
-def send_health_alert(request: HealthAlertRequest):
-    logger.info(f"Received health alert request for issues: {request.issues}")
-    
-    current_datetime = datetime.now().strftime("%B %d %Y - %I:%M %p")
-    subject = f"Stockflow Alert: Health Check Failed - {current_datetime}"
-    
-    body = f"""
-Hello,
-
-Stockflow has identified failed health check during routine checks.
-
-Errored Services: {request.issues}
-
-Thank you,
-Stockflow
-
----
-
-This is an automated message. Please do not reply.
-    """
-    
-    # Default receiver for health alerts
-    receiver = os.getenv("HEALTH_ALERT_RECEIVER", "kingaiva@icloud.com")
-    
-    try:
-        send_email(subject, body, receiver, is_html=False)
-        return JSONResponse({"status": "Health alert email sent"})
-    except Exception as e:
-        logger.error(f"Failed to send health alert: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/api/v1/send-email")

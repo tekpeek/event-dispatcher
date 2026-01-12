@@ -7,6 +7,7 @@ import os
 import logging
 from typing import List, Any
 
+
 logger = logging.getLogger(__name__)
 
 # Environment variables
