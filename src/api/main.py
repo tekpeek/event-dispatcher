@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi import FastAPI, BackgroundTasks,HTTPException, APIRouter
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -8,7 +8,6 @@ import os
 import sys
 import logging
 from datetime import datetime
-from email_handler import send_email, prepare_stock_template
 from event_dispatch_functions import trigger_health_alert
 
 # Configure logging
@@ -59,11 +58,12 @@ def health_check():
     return JSONResponse({"status": "OK", "timestamp": str(datetime.now())})
 
 @router.post("/api/v1/health-alert")
-def send_health_alert(request: HealthAlertRequest):
+def send_health_alert(request: HealthAlertRequest, background_tasks: BackgroundTasks):
     logger.info(f"Received health alert request for issues: {request.issues}")
     current_datetime = datetime.now().strftime("%B %d %Y - %I:%M %p")
     try:
-        trigger_health_alert(logger,request.issues,current_datetime)
+        background_tasks.add_task(trigger_health_alert,logger,request.issues,current_datetime)
+        #trigger_health_alert(logger,request.issues,current_datetime)
     except Exception as e:
         logger.error(f"Failed to send health alert: {str(e)}")
         raise HTTPException(status_code=500,detail=str(e))
