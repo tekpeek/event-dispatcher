@@ -17,6 +17,6 @@ ENV PYTHONUNBUFFERED=1
 RUN pip install fastapi uvicorn yfinance pandas
 
 COPY src/api/main.py /app/main.py
-COPY src/core/event_dispatcher_functions.py /app/event_dispatcher_functions.py
+COPY src/core/event_dispatch_functions.py /app/event_dispatch_functions.py
 
 CMD ["python3","main.py"]
