@@ -32,25 +32,8 @@ app.add_middleware(
 )
 
 # Models
-class StockItem(BaseModel):
-    symbol: str
-    buy_rating: float
-    overall_sentiment: str
-    key_drivers: Any
-    confidence: str
-    summary: str
-
-class StockAlertRequest(BaseModel):
-    stocks: List[StockItem]
-    error_list: List[str] = []
-
 class HealthAlertRequest(BaseModel):
     issues: List[str]
-
-class GenericEmailRequest(BaseModel):
-    subject: str
-    body: str
-    to_email: Optional[str] = None
 
 # Endpoints
 @router.get("/health")
@@ -68,37 +51,6 @@ def send_health_alert(request: HealthAlertRequest, background_tasks: BackgroundT
         logger.error(f"Failed to send health alert: {str(e)}")
         raise HTTPException(status_code=500,detail=str(e))
     return JSONResponse({"status": "Health alert email sent"})
-    
-
-
-
-@router.post("/api/v1/stock-alert")
-def send_stock_alert(request: StockAlertRequest):
-    logger.info(f"Received stock alert request for {len(request.stocks)} stocks")
-    
-    current_datetime = datetime.now().strftime("%B %d %Y - %I:%M %p")
-    subject = f"Stockflow Alert: Buy Signal Detected - {current_datetime}"
-    
-    try:
-        body = prepare_stock_template(request.stocks)
-        # Default receiver for stock alerts
-        receiver = os.getenv("STOCK_ALERT_RECEIVER", "avinashsubhash19@outlook.com")
-        send_email(subject, body, receiver, is_html=True)
-        return JSONResponse({"status": "Email sent", "count": len(request.stocks)})
-    except Exception as e:
-        logger.error(f"Failed to send stock alert: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/api/v1/send-email")
-def send_generic_email(request: GenericEmailRequest):
-    logger.info(f"Received generic email request: {request.subject}")
-    receiver = request.to_email or os.getenv("DEFAULT_RECEIVER", "avinashsubhash19@outlook.com")
-    try:
-        send_email(request.subject, request.body, receiver, is_html=False)
-        return JSONResponse({"status": "Email sent"})
-    except Exception as e:
-        logger.error(f"Failed to send generic email: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 app.include_router(router)
 
