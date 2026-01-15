@@ -19,11 +19,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Event Dispatcher Service")
+event_dispatcher = FastAPI(title="Event Dispatcher Service")
 router = APIRouter()
 
 # CORS
-app.add_middleware(
+event_dispatcher.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
@@ -52,9 +52,9 @@ def send_health_alert(request: HealthAlertRequest, background_tasks: BackgroundT
         raise HTTPException(status_code=500,detail=str(e))
     return JSONResponse({"status": "Health alert email sent"})
 
-app.include_router(router)
+event_dispatcher.include_router(router)
 
 if __name__ == "__main__":
     logger.info("Starting Event Dispatcher Service")
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, log_level="info", reload=True)
+    uvicorn.run("main:event_dispatcher", host="0.0.0.0", port=8000, log_level="info", reload=True)
 
