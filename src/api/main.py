@@ -35,6 +35,9 @@ event_dispatcher.add_middleware(
 class HealthAlertRequest(BaseModel):
     issues: List[str]
 
+class EmailAlertRequest(BaseModel):
+    stock_list: List[List[str]]
+
 # Endpoints
 @router.get("/health")
 def health_check():
@@ -51,6 +54,17 @@ def send_health_alert(request: HealthAlertRequest, background_tasks: BackgroundT
         logger.error(f"Failed to send health alert: {str(e)}")
         raise HTTPException(status_code=500,detail=str(e))
     return JSONResponse({"status": "Health alert email sent"})
+
+@router.post("/api/v1/email-alert")
+def send_email_alert(request: EmailAlertRequest, background_tasks: BackgroundTasks):
+    logger.info(f"Received email alert request for stockflow")
+    current_datetime = datetime.now().strftime("%B %d %Y - %I:%M %p")
+    try:
+        background_tasks.add_task(trigger_email_alert,logger,request.stock_list,current_datetime)
+    except Exception as e:
+        logger.error(f"Failed to send email alert: {str(e)}")
+        raise HTTPException(status_code=500,detail=str(e))
+    return JSONResponse({"status": "Email alert process initiated"})
 
 event_dispatcher.include_router(router)
 
