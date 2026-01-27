@@ -18,5 +18,6 @@ RUN pip install fastapi uvicorn yfinance pandas
 
 COPY src/api/main.py /app/main.py
 COPY src/core/event_dispatch_functions.py /app/event_dispatch_functions.py
+COPY templates/email-template.html /app/email-template.html
 
 CMD ["python3","main.py"]
