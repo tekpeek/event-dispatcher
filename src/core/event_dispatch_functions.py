@@ -97,7 +97,7 @@ def trigger_email_alert(logger,stock_list,current_datetime):
     server.send_message(msg)
 
 def prepare_template(stock_list=None):
-    with open("/home/ubuntu/app/email-template.html") as f:
+    with open("email-template.html") as f:
         html = f.read()
     
     if stock_list:

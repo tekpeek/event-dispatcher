@@ -8,7 +8,7 @@ import os
 import sys
 import logging
 from datetime import datetime
-from event_dispatch_functions import trigger_health_alert
+from event_dispatch_functions import trigger_health_alert,trigger_email_alert,send_email,prepare_template
 
 # Configure logging
 logging.basicConfig(
@@ -36,7 +36,7 @@ class HealthAlertRequest(BaseModel):
     issues: List[str]
 
 class EmailAlertRequest(BaseModel):
-    stock_list: List[List[str]]
+    stock_list: List[Dict[str, Any]]
 
 # Endpoints
 @router.get("/health")
