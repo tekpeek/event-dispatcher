@@ -8,7 +8,7 @@ import os
 import sys
 import logging
 from datetime import datetime
-from event_dispatch_functions import trigger_health_alert,trigger_email_alert,send_email,prepare_template
+from event_dispatch_functions import trigger_health_alert,trigger_email_alert,send_email,prepare_template,send_slack_message
 
 # Configure logging
 logging.basicConfig(
@@ -34,9 +34,17 @@ event_dispatcher.add_middleware(
 # Models
 class HealthAlertRequest(BaseModel):
     issues: List[str]
+    channels: Optional[List[str]] = ["email"]
+    channel: Optional[str] = None
 
 class EmailAlertRequest(BaseModel):
     stock_list: List[Dict[str, Any]]
+    channels: Optional[List[str]] = ["email"]
+    channel: Optional[str] = None
+
+class SlackAlertRequest(BaseModel):
+    message: str
+    channel: str
 
 # Endpoints
 @router.get("/health")
@@ -48,23 +56,32 @@ def send_health_alert(request: HealthAlertRequest, background_tasks: BackgroundT
     logger.info(f"Received health alert request for issues: {request.issues}")
     current_datetime = datetime.now().strftime("%B %d %Y - %I:%M %p")
     try:
-        background_tasks.add_task(trigger_health_alert,logger,request.issues,current_datetime)
-        #trigger_health_alert(logger,request.issues,current_datetime)
+        background_tasks.add_task(trigger_health_alert, logger, request.issues, current_datetime, request.channels, request.channel)
     except Exception as e:
         logger.error(f"Failed to send health alert: {str(e)}")
-        raise HTTPException(status_code=500,detail=str(e))
-    return JSONResponse({"status": "Health alert email sent"})
+        raise HTTPException(status_code=500, detail=str(e))
+    return JSONResponse({"status": "Health alert process initiated", "channels": request.channels})
 
 @router.post("/api/v1/email-alert")
 def send_email_alert(request: EmailAlertRequest, background_tasks: BackgroundTasks):
     logger.info(f"Received email alert request for stockflow")
     current_datetime = datetime.now().strftime("%B %d %Y - %I:%M %p")
     try:
-        background_tasks.add_task(trigger_email_alert,logger,request.stock_list,current_datetime)
+        background_tasks.add_task(trigger_email_alert, logger, request.stock_list, current_datetime, request.channels, request.channel)
     except Exception as e:
         logger.error(f"Failed to send email alert: {str(e)}")
-        raise HTTPException(status_code=500,detail=str(e))
-    return JSONResponse({"status": "Email alert process initiated"})
+        raise HTTPException(status_code=500, detail=str(e))
+    return JSONResponse({"status": "Email alert process initiated", "channels": request.channels})
+
+@router.post("/api/v1/slack-alert")
+def send_slack_alert(request: SlackAlertRequest, background_tasks: BackgroundTasks):
+    logger.info(f"Received generic Slack alert request")
+    try:
+        background_tasks.add_task(send_slack_message, logger, request.message, request.channel)
+    except Exception as e:
+        logger.error(f"Failed to send slack alert: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    return JSONResponse({"status": "Slack alert process initiated"})
 
 event_dispatcher.include_router(router)
 

@@ -51,6 +51,11 @@ else
     exit 1
 fi
 
+# Create secret to store webhooks
+kubectl -n $namespace delete secret slack-webhooks --ignore-not-found
+kubectl -n $namespace create secret generic slack-webhooks \
+    --from-literal=stockflow="${SLACK_WEBHOOK_STOCKFLOW}"
+
 # Delete old deployment and deploy the event-dispatcher server
 kubectl -n "$namespace" delete deployment event-dispatcher --ignore-not-found
 sed "s|__DEPLOY_TYPE__|${DEPLOY_TYPE}|g" kubernetes/deployments/event-dispatcher-deployment.yaml > event-dispatcher-deploy.yaml

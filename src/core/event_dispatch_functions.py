@@ -1,4 +1,5 @@
 import os
+import requests
 import logging
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException
@@ -18,6 +19,7 @@ SMTP_USER = os.getenv("SMTP_USER", "noreply.avinash.s@gmail.com")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 SENDER_ADDR = os.getenv("SENDER_ADDR", "noreply.avinash.s@gmail.com")
 TEMPLATE_PATH = os.getenv("TEMPLATE_PATH", "templates/email-template.html")
+SLACK_SECRETS_PATH = os.getenv("SLACK_SECRETS_PATH", "/app/secrets/slack")
 
 def send_email(logger,subject: str, body: str, to_email: str, is_html: bool = False):
     if not SMTP_HOST or not SMTP_PASSWORD:
@@ -46,9 +48,42 @@ def send_email(logger,subject: str, body: str, to_email: str, is_html: bool = Fa
         logger.error(f"Failed to send email: {str(e)}")
         raise e
 
-def trigger_health_alert(logger,issues,current_datetime):
-    subject = f"Stockflow Alert: Health Check Failed - {current_datetime}"
-    body = f"""
+def get_slack_webhook(channel_name: str):
+    if not channel_name:
+        raise ValueError("Slack channel name is mandatory")
+    
+    # Strictly check for file-based secret (K8s mounted volume)
+    secret_file = os.path.join(SLACK_SECRETS_PATH, channel_name)
+    if not os.path.exists(secret_file):
+        raise FileNotFoundError(f"Slack secret file not found for channel: {channel_name}")
+    
+    try:
+        with open(secret_file, 'r') as f:
+            webhook = f.read().strip()
+            if not webhook:
+                raise ValueError(f"Slack secret file for channel '{channel_name}' is empty")
+            return webhook
+    except Exception as e:
+        raise Exception(f"Failed to read Slack secret for channel '{channel_name}': {str(e)}")
+
+def send_slack_message(logger, message: str, channel: str):
+    try:
+        url = get_slack_webhook(channel)
+        logger.info(f"Sending Slack message to channel: {channel}...")
+        response = requests.post(url, json={"text": message})
+        response.raise_for_status()
+        logger.info("Slack message sent successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send Slack message: {str(e)}")
+        return False
+
+def trigger_health_alert(logger, issues: List[str], current_datetime: str, channels: List[str] = ["email"], channel: str = None):
+    results = {}
+    
+    if "email" in channels:
+        subject = f"Stockflow Alert: Health Check Failed - {current_datetime}"
+        body = f"""
 Hello,
 
 Stockflow has identified failed health check during routine checks.
@@ -61,40 +96,69 @@ Stockflow
 ---
 
 This is an automated message. Please do not reply.
-    """
-    
-    # Default receiver for health alerts
-    receiver = os.getenv("HEALTH_ALERT_RECEIVER", "kingaiva@icloud.com")
-    
-    try:
-        send_email(logger,subject, body, receiver, is_html=False)
-        return JSONResponse({"status": "Health alert email sent"})
-    except Exception as e:
-        logger.error(f"Failed to send health alert: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        """
+        
+        # Default receiver for health alerts
+        receiver = os.getenv("HEALTH_ALERT_RECEIVER", "kingaiva@icloud.com")
+        
+        try:
+            send_email(logger, subject, body, receiver, is_html=False)
+            results["email"] = "sent"
+        except Exception as e:
+            logger.error(f"Failed to send health alert email: {str(e)}")
+            results["email"] = f"failed: {str(e)}"
 
-def trigger_email_alert(logger,stock_list,current_datetime):
-    current_datetime = datetime.now().strftime("%B %d %Y - %I:%M %p")
-    subject = f"Stockflow Alert: Buy Signal Detected - {current_datetime}"
-    sender_addr = "noreply.avinash.s@gmail.com"
-    smtp_host = os.getenv("SMTP_HOST")
+    if "slack" in channels:
+        slack_msg = f"*Stockflow Alert: Health Check Failed*\n*Time:* {current_datetime}\n*Errored Services:* {', '.join(issues)}"
+        if send_slack_message(logger, slack_msg, channel):
+            results["slack"] = "sent"
+        else:
+            results["slack"] = "failed"
+
+    return results
+
+def trigger_email_alert(logger, stock_list, current_datetime: str, channels: List[str] = ["email"], channel: str = None):
+    results = {}
     
-    # Format stock details
-    body=prepare_template(stock_list)
-    smtp_user = "noreply.avinash.s@gmail.com"
-    smtp_password = os.getenv("SMTP_PASSWORD")
-    smtp_port = os.getenv("SMTP_PORT")
-    reciever = "avinashsubhash19@outlook.com"
-    msg = MIMEMultipart("alternative")
-    msg['Subject'] = subject
-    msg['From'] = formataddr(("Market Monitor", sender_addr))
-    msg['To'] = reciever
-    msg.attach(MIMEText(body, "html"))
-    #msg.set_content(body)
-    server = smtplib.SMTP(smtp_host,smtp_port)    
-    server.starttls()
-    server.login(smtp_user,smtp_password)
-    server.send_message(msg)
+    if "email" in channels:
+        current_datetime_str = datetime.now().strftime("%B %d %Y - %I:%M %p")
+        subject = f"Stockflow Alert: Buy Signal Detected - {current_datetime_str}"
+        sender_addr = "noreply.avinash.s@gmail.com"
+        smtp_host = os.getenv("SMTP_HOST")
+        
+        # Format stock details
+        body = prepare_template(stock_list)
+        smtp_user = "noreply.avinash.s@gmail.com"
+        smtp_password = os.getenv("SMTP_PASSWORD")
+        smtp_port = os.getenv("SMTP_PORT")
+        receiver = "avinashsubhash19@outlook.com"
+        
+        msg = MIMEMultipart("alternative")
+        msg['Subject'] = subject
+        msg['From'] = formataddr(("Market Monitor", sender_addr))
+        msg['To'] = receiver
+        msg.attach(MIMEText(body, "html"))
+        
+        try:
+            with smtplib.SMTP(smtp_host, int(smtp_port or 587)) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
+            logger.info(f"Email alert sent successfully")
+            results["email"] = "sent"
+        except Exception as e:
+            logger.error(f"Failed to send email alert: {str(e)}")
+            results["email"] = f"failed: {str(e)}"
+
+    if "slack" in channels:
+        stock_summary = "\n".join([f"• *{s['symbol']}*: {s['buy_rating']} ({s['overall_sentiment']})" for s in stock_list])
+        slack_msg = f"*Stockflow Alert: Buy Signal Detected*\n*Time:* {current_datetime}\n*Summary:*\n{stock_summary}"
+        if send_slack_message(logger, slack_msg, channel):
+            results["slack"] = "sent"
+        else:
+            results["slack"] = "failed"
+            
+    return results
 
 def prepare_template(stock_list=None):
     with open("email-template.html") as f:
