@@ -151,7 +151,13 @@ def trigger_email_alert(logger, stock_list, current_datetime: str, channels: Lis
             results["email"] = f"failed: {str(e)}"
 
     if "slack" in channels:
-        stock_summary = "\n".join([f"• *{s['symbol']}*: {s['buy_rating']} ({s['overall_sentiment']})" for s in stock_list])
+        stock_summary = "\n".join([
+            f"• *{s['symbol']}*: {s['buy_rating']} ({s['overall_sentiment']})\n"
+            f"  *Confidence:* {s.get('confidence', 'N/A')}\n"
+            f"  *Key Drivers:* {s.get('key_drivers', 'N/A')}\n"
+            f"  *Summary:* {s.get('summary', 'N/A')}"
+            for s in stock_list
+        ])
         slack_msg = f"*Stockflow Alert: Buy Signal Detected*\n*Time:* {current_datetime}\n*Summary:*\n{stock_summary}"
         if send_slack_message(logger, slack_msg, channel):
             results["slack"] = "sent"
