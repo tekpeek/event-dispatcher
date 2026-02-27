@@ -43,6 +43,14 @@ spec:
                   name: maintenance-config
                   key: status
           imagePullPolicy: Always
+          volumeMounts:
+            - name: slack-secrets
+              mountPath: /app/secrets/slack
+              readOnly: true
           ports:
             - containerPort: 8000
               name: ed-port
+        volumes:
+          - name: slack-secrets
+            secret:
+              secretName: slack-webhooks
