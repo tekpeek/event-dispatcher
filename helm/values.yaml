@@ -1,0 +1,48 @@
+# Default values for event-dispatcher.
+namespace: "None"
+imageVersion: "dev"
+slackWebhookStockflow: "None"
+
+secrets:
+  - name: slack-webhooks
+    data:
+      SLACK_WEBHOOK_STOCKFLOW: "{{ .Values.slackWebhookStockflow }}"
+    
+deployments:
+  - name: event-dispatcher
+    replicas: 2
+    image: kingaiva/event-dispatcher
+    env:
+      plain:
+        PORT: "8000"
+      secret:
+        - name: SMTP_HOST
+          key: smtp-host
+          secret: smtp-credentials
+        - name: SMTP_PORT
+          key: smtp-port
+          secret: smtp-credentials
+        - name: SMTP_PASSWORD
+          key: smtp-password
+          secret: smtp-credentials
+      configmap:
+        - name: MAINTENANCE_STATUS
+          key: status
+          configmap: maintenance-config
+    ports:
+      - name: ed-port
+        containerPort: 8000
+    volumes:
+      - name: slack-secrets
+        secretName: slack-webhooks
+    volumeMounts:
+      - name: slack-secrets
+        mountPath: /app/secrets/slack
+        readOnly: true
+
+services:
+  - name: event-dispatcher-service
+    app: event-dispatcher
+    port: 8000
+    portName: ed-svc-port
+    targetPort: ed-port

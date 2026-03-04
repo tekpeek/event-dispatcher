@@ -1,0 +1,6 @@
+apiVersion: v2
+name: event-dispatcher
+description: A Helm chart for event-dispatcher
+type: application
+version: 26.3.4-1
+appVersion: "26.3.4"

@@ -1,12 +1,19 @@
 ---
 name: deploy-event-dispatcher
 on:
-  workflow_dispatch:
-  workflow_run:
-    workflows:
-      - build-image-and-push
-    types:
-      - completed
+  workflow_call:
+    inputs:
+      namespace:
+        description: 'Namespace to deploy to'
+        required: true
+        type: string
+        default: 'dev'
+      image-version:
+        description: 'Image version to deploy'
+        required: true
+        type: string
+        default: 'dev'
+
 jobs:
  build:
    name: deploy-event-dispatcher
@@ -15,8 +22,10 @@ jobs:
    - name: Checkout
      uses: actions/checkout@v2
  
-   - name: deploy-microservices
-     env:
-       SLACK_WEBHOOK_STOCKFLOW: ${{ secrets.SLACK_WEBHOOK_STOCKFLOW }}
+   - name: deploy-microservice
      run: |
-       bash deploy_project.sh
+       helm upgrade --install event-dispatcher helm/ \
+        --set namespace=${{ inputs.namespace }} \
+        --set imageVersion=${{ inputs.image-version }} \
+        --set slackWebhookStockflow=${{ secrets.SLACK_WEBHOOK_STOCKFLOW }} \
+        -n ${{ inputs.namespace }}
