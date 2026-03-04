@@ -6,7 +6,7 @@ slackWebhookStockflow: "None"
 secrets:
   - name: slack-webhooks
     data:
-      SLACK_WEBHOOK_STOCKFLOW: "{{ .Values.slackWebhookStockflow }}"
+      stockflow: "{{ .Values.slackWebhookStockflow }}"
     
 deployments:
   - name: event-dispatcher
