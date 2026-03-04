@@ -29,6 +29,13 @@ spec:
           {{- include "mychart.renderEnv" $item | nindent 10}}
           imagePullPolicy: Always
           ports: {{- include "mychart.renderPorts" $item | nindent 12}}
+          volumeMounts:
+            - name: slack-secrets
+              mountPath: /app/secrets/slack
+              readOnly: true
+        volumes:
+          - name: slack-secrets
+            secretName: slack-webhooks
 
 ---
 {{- end}}

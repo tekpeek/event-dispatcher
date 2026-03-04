@@ -32,13 +32,6 @@ deployments:
     ports:
       - name: ed-port
         containerPort: 8000
-    volumes:
-      - name: slack-secrets
-        secretName: slack-webhooks
-    volumeMounts:
-      - name: slack-secrets
-        mountPath: /app/secrets/slack
-        readOnly: true
 
 services:
   - name: event-dispatcher-service
