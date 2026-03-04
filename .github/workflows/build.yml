@@ -1,9 +1,17 @@
 ---
 name: build-image-and-push
 on:
-  workflow_dispatch:
   push:
-    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      image-version:
+        description: 'Version of the image to build'
+        required: true
+        default: 'stable'
+      namespace:
+        description: 'Namespace to deploy to'
+        required: true
+        default: 'default'
     
 jobs:
   build:
@@ -25,4 +33,12 @@ jobs:
        context:
        file: ./dockerfiles/Dockerfile.event-dispatcher
        push: true
-       tags: kingaiva/event-dispatcher:stable
+       tags: kingaiva/event-dispatcher:${{ inputs.image-version || 'dev' }}
+
+  deploy:
+    needs: build
+    uses: ./.github/workflows/deploy.yml
+    with:
+      namespace: ${{ inputs.namespace || 'dev' }}
+      image-version: ${{ inputs.image-version || 'dev' }}
+    secrets: inherit
